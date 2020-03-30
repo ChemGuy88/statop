@@ -34,9 +34,12 @@ from sklearn.model_selection import ShuffleSplit, train_test_split
 ########################################################################'''
 
 userDir = '/Users/herman'
-workDir = f'{userDir}/Documents/statop'
+workDir = f'{userDir}/Documents/statop/hw2'
+
 randomState = None
 np.random.seed(1)
+
+numIterations = 100
 
 '''#####################################################################
 ###### Functions #############################################
@@ -102,87 +105,40 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=randomSta
 scaler = StandardScaler(with_std=True, with_mean=True)
 X_train_scaled = scaler.fit_transform(X_train, y_train)
 
-betaHistory, costHistory = batchGradientDescent(X_train_scaled, y_train,
-                                                alpha=0.1, numIterations=100,
-                                                betaHat=None)
+alphas = [0.01, 0.25, 0.5, 0.75, 0.9, 0.99, 2, 10, 1000]
+N = len(alphas)
+betas = []
+costs = []
+for i in range(N):
+    betaHistory, costHistory = batchGradientDescent(X_train_scaled, y_train,
+                                                    alpha=0.1, numIterations=numIterations,
+                                                    betaHat=None)
+    betas.append(betaHistory)
+    costs.append(costHistory)
 
 '''#################### Plot descent ##########################'''
-# https://scipython.com/blog/visualizing-the-gradient-descent-method/
 
-# Select representative betaHats
-betaHistoryIndices = [0,10,25,50,99]
-samplesBetaHats = betaHistory[betaHistoryIndices]
-M = len(samplesBetaHats)
+numIterationsShort = 10
 
-# Data and fit
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,6.15))
-plt.show(block = False)
-a = np.linspace(-1, 1, 51)
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,10))
+ax1 = ax.ravel()[0]
+ax2 = ax.ravel()[1]
+for i in range(0,N):
+    label = r'$\alpha$ = {0:0.2f}'.format(alphas[i]) # syntax {0th variable:two decimal place float}
+    ax1.plot(costs[i][:numIterations], label=label, alpha=0.5)
+    ax2.plot(costs[i][:numIterationsShort], label=label, alpha=0.5)
 
-# Plot fit of representative betahats
-colors = ['r', 'orange', 'y', 'g', 'b']
-for i in range(1, M):
-    betaHat = samplesBetaHats[i,:]
-    b0 = betaHat[0]
-    c = a * b0
-    label = r'$\beta_0 = {:.3f}$'.format(b0)
-    ax[0].scatter(a, c, marker='.', facecolor='None', edgecolor=colors[i], lw=1,
-                  label=label)
+fig.legend(loc='lower center', shadow=True, fontsize='small', ncol=N)
 
-# Plot fit of actual beta
-b0 = beta[0]
-c = a * b0
-ax[0].scatter(a, c, marker='x', s=40, color='k', alpha=0.5)
+# Plot cost of true beta as horizontal line.
+trueCost = costFunction(X_train_scaled, y_train, beta)
+ax1.plot([trueCost] * numIterations, c='k', alpha=0.5)
+ax2.plot([trueCost] * numIterationsShort, c='k', alpha=0.5)
 
-# Add labels, title, and legend for data and fit
-ax[0].set_xlabel(r'$x$')
-ax[0].set_ylabel(r'$y$')
-ax[0].set_title('Data and fit')
-ax[0].legend(loc='upper left', fontsize='small')
+# Design
+ax1.set_title(f'Gradient descent with {numIterations} iterations')
+ax2.set_title(f'Zoomed-in view of gradient descent')
 
-# Construct cost function grid
-b0absmax = np.max(np.abs(betaHistory[:,0] - beta[0])) * 2
-b1absmax = np.max(np.abs(betaHistory[:,1] - beta[1])) * 2
-beta0_axis = np.linspace(beta[0] - b0absmax, beta[0] + b0absmax, 101)
-beta1_axis = np.linspace(beta[1] - b1absmax, beta[1] + b1absmax, 101)
-
-len_beta0_axis = len(beta0_axis)
-len_beta1_axis = len(beta1_axis)
-costGrid = np.zeros( ( len_beta1_axis, len_beta0_axis))
-X_train_scaled_2d = X_train_scaled[:,:2]
-
-for i in range(len_beta0_axis):
-    for j in range(len_beta1_axis):
-        smallBeta = np.array([ beta0_axis[i] , beta1_axis[j] ])
-        costGrid[i,j] = costFunction(X_train_scaled_2d, y_train, smallBeta)
-
-beta0_grid, beta1_grid = np.meshgrid(beta0_axis, beta1_axis)
-contours = ax[1].contour(beta0_grid, beta1_grid, costGrid, 15)
-ax[1].clabel(contours)
-
-# Plot value of true beta on costGrid
-ax[1].scatter([beta[0]]*2, [beta[1]]*2, s=[50,10], color=['k', 'w'])
-
-# Plot value of representative betahats on costGrid
-betaHistoryIndices = [0,10,25,50,99]
-samplesBetaHats = betaHistory[betaHistoryIndices]
-M = len(samplesBetaHats)
-for i in range(1, M):
-    oldBetaHat = samplesBetaHats[i-1,:]
-    betaHat = samplesBetaHats[i,:]
-    ax[1].annotate('', xy=betaHat, xytext=oldBetaHat,
-                   arrowprops={'arrowstyle': '->', 'color': 'r', 'lw': 1},
-                   va='center', ha='center')
-ax[1].scatter(*zip(*samplesBetaHats), c=colors, s=40, lw=0, alpha=0.5)
-
-# Labels, titles, and legend
-ax[1].set_xlabel(r'$\theta_0$')
-ax[1].set_ylabel(r'$\theta_1$')
-ax[1].set_title('Cost function')
-
+fname = f'{workDir}/hw2_5_fig01.png'
+plt.savefig(fname)
 plt.show()
-
-'''#################### Test ##########################'''
-
-X_test_scaled = scaler.transform(X_test)
-betaHat = betaHistory[-1,:]
