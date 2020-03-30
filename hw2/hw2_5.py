@@ -35,6 +35,8 @@ from sklearn.model_selection import ShuffleSplit, train_test_split
 
 userDir = '/Users/herman'
 workDir = f'{userDir}/Documents/statop'
+randomState = None
+np.random.seed(1)
 
 '''#####################################################################
 ###### Functions #############################################
@@ -52,7 +54,7 @@ def costFunction(X, y, beta):
     cost = np.average( (yhat - y) ** 2, axis=0)/2
     return cost
 
-def batchGradientDescent(X, y, alpha, numIterations, betaHat=None):
+def batchGradientDescent(X, y, alpha, numIterations, betaHat):
     '''
     '''
     n, p = X.shape
@@ -88,14 +90,14 @@ plt.close('all')
 X, y, beta = make_regression(n_samples=100, n_features=2, n_informative=2,\
                              n_targets=1, bias=0.0, effective_rank=None,\
                              tail_strength=0.5, noise=0.0, shuffle=True,\
-                             coef=True, random_state=None)
+                             coef=True, random_state=randomState)
 
 n, p = X.shape
 y = y.reshape((n,1))
 
 '''#################### Train ##########################'''
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=randomState)
 
 scaler = StandardScaler(with_std=True, with_mean=True)
 X_train_scaled = scaler.fit_transform(X_train, y_train)
