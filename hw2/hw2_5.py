@@ -19,15 +19,10 @@ import numpy as np
 import numpy.linalg as la
 import pandas as pd
 import scipy as sp
-from sklearn.datasets import make_regression
+from sklearn.datasets import make_classification, make_regression
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import auc, classification_report, precision_recall_curve, roc_curve
 from sklearn.model_selection import ShuffleSplit, train_test_split
-
-# For running IPython magic commands (e.g., %matplotlib)
-# ipython = get_ipython()
-
-# Display plots inline and change default figure size
-# ipython.magic("matplotlib")
 
 '''#####################################################################
 ###### Universal Variables #############################################
@@ -57,6 +52,19 @@ def costFunction(X, y, beta):
     cost = np.average( (yhat - y) ** 2, axis=0)/2
     return cost
 
+def logisticCostFunction(X, y, beta):
+    '''
+    An alternative to https://stackoverflow.com/questions/35956902/how-to-evaluate-cost-function-for-scikit-learn-logisticregression
+    '''
+    n, p = X.shape
+    cost = np.zeros((n))
+    cost0 = 1 - np.log( 1 - sigmoid( X, beta) )
+    cost1 = - np.log( 1 - sigmoid( X, beta) )
+    cost[y == 0] =  cost0[y==0]
+    cost[y == 1] =  cost1[y==1]
+
+    return cost.sum()
+
 def batchGradientDescent(X, y, alpha, numIterations, betaHat):
     '''
     '''
@@ -82,63 +90,149 @@ def batchGradientDescent(X, y, alpha, numIterations, betaHat):
 
     return betaHistory, costHistory
 
+def sigmoid(X, beta):
+    '''
+    '''
+    score = X.dot(beta)
+    z = ( 1 / ( 1 + np.e ** - score ) )
+
+    return z
+
+def batchLogisticGradientDescent(X, y, alpha, numIterations, betaHat):
+    '''
+    '''
+    n, p = X.shape
+    y = y.reshape((n,1))
+    costHistory = np.zeros((numIterations,1))
+    betaHistory = np.zeros((numIterations,p))
+
+    if not betaHat:
+        betaHat = np.random.uniform(size=p, low=-1, high=1)
+        betaHat = betaHat.reshape((p,1))
+
+    for i in range(numIterations):
+        score = X.dot(betaHat)
+        # yhat = np.round(1/(1+np.e ** - score), decimals=0)
+        loss = np.sum( np.log( 1 + np.e ** (- y * score) ) )
+        gradient = score - y
+
+        betaHat = betaHat - alpha * gradient
+        betaHistory[i,:] = betaHat.ravel()
+
+        cost = costFunction(X, y, betaHat)
+        costHistory[i] = cost.ravel()
+
+    return betaHistory, costHistory
+
 '''#####################################################################
 ###### Workspace #######################################################
 ########################################################################'''
 
 plt.close('all')
 
-'''#################### Generate data ##########################'''
+regressionTypes = ['ols', 'logistic']
+for regType in regressionTypes:
 
-X, y, beta = make_regression(n_samples=100, n_features=2, n_informative=2,\
-                             n_targets=1, bias=0.0, effective_rank=None,\
-                             tail_strength=0.5, noise=0.0, shuffle=True,\
-                             coef=True, random_state=randomState)
+    '''#################### Generate data ##########################'''
 
-n, p = X.shape
-y = y.reshape((n,1))
+    if regType == 'ols':
+        X, y, beta = make_regression(n_samples=100, n_features=2, n_informative=2,
+                                     n_targets=1, bias=0.0, effective_rank=None,
+                                     tail_strength=0.5, noise=0.0, shuffle=True,
+                                     coef=True, random_state=randomState)
+    elif regType == 'logistic':
+        X, y = make_classification(n_samples=100, n_features=20, n_informative=2,
+                                   n_classes=2, n_clusters_per_class=2,
+                                   weights=None, flip_y=0.01, class_sep=1.0,
+                                   hypercube=True, shift=0.0, scale=1.0,
+                                   shuffle=True, random_state=randomState)
 
-'''#################### Train ##########################'''
+    n, p = X.shape
+    if regType == 'ols':
+        y = y.reshape((n,1))
+    elif regType == 'logistic':
+        pass
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=randomState)
+    '''#################### Train ##########################'''
 
-scaler = StandardScaler(with_std=True, with_mean=True)
-X_train_scaled = scaler.fit_transform(X_train, y_train)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=randomState)
 
-alphas = [0.01, 0.25, 0.5, 0.75, 0.9, 0.99, 2, 10, 1000]
-N = len(alphas)
-betas = []
-costs = []
-for i in range(N):
-    betaHistory, costHistory = batchGradientDescent(X_train_scaled, y_train,
-                                                    alpha=0.1, numIterations=numIterations,
-                                                    betaHat=None)
-    betas.append(betaHistory)
-    costs.append(costHistory)
+    scaler = StandardScaler(with_std=True, with_mean=True)
+    X_train_scaled = scaler.fit_transform(X_train, y_train)
 
-'''#################### Plot descent ##########################'''
+    alphas = [0.01, 0.25, 0.5, 0.75, 0.9, 0.99, 2, 10, 1000]
+    N = len(alphas)
+    betas = []
+    costs = []
+    for i in range(N):
+        betaHistory, costHistory = batchGradientDescent(X_train_scaled, y_train,
+                                                        alpha=0.1, numIterations=numIterations,
+                                                        betaHat=None)
+        betas.append(betaHistory)
+        costs.append(costHistory)
 
-numIterationsShort = 10
+    '''#################### Plot descent ##########################'''
 
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,10))
-ax1 = ax.ravel()[0]
-ax2 = ax.ravel()[1]
-for i in range(0,N):
-    label = r'$\alpha$ = {0:0.2f}'.format(alphas[i]) # syntax {0th variable:two decimal place float}
-    ax1.plot(costs[i][:numIterations], label=label, alpha=0.5)
-    ax2.plot(costs[i][:numIterationsShort], label=label, alpha=0.5)
+    numIterationsShort = 10
 
-fig.legend(loc='lower center', shadow=True, fontsize='small', ncol=N)
+    fig1, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,10))
+    ax1 = ax.ravel()[0]
+    ax2 = ax.ravel()[1]
+    for i in range(0,N):
+        label = r'$\alpha$ = {0:0.2f}'.format(alphas[i]) # syntax {0th variable:two decimal place float}
+        ax1.plot(costs[i][:numIterations], label=label, alpha=0.5)
+        ax2.plot(costs[i][:numIterationsShort], label=label, alpha=0.5)
 
-# Plot cost of true beta as horizontal line.
-trueCost = costFunction(X_train_scaled, y_train, beta)
-ax1.plot([trueCost] * numIterations, c='k', alpha=0.5)
-ax2.plot([trueCost] * numIterationsShort, c='k', alpha=0.5)
+    fig1.legend(loc='lower center', shadow=True, fontsize='small', ncol=N)
 
-# Design
-ax1.set_title(f'Gradient descent with {numIterations} iterations')
-ax2.set_title(f'Zoomed-in view of gradient descent')
+    # Plot cost of true beta as horizontal line.
+    if regType == 'ols':
+        trueCost = costFunction(X_train_scaled, y_train, beta)
+        ax1.plot([trueCost] * numIterations, c='k', alpha=0.5)
+        ax2.plot([trueCost] * numIterationsShort, c='k', alpha=0.5)
+    elif regType == 'logistic':
+        pass
+        # betaHat = betaHistory[-1,:]
+        # trueCost = logisticCostFunction(X_train_scaled, y_train, betaHat)
+        # ax1.plot([trueCost] * numIterations, c='k', alpha=0.5)
+        # ax2.plot([trueCost] * numIterationsShort, c='k', alpha=0.5)
 
-fname = f'{workDir}/hw2_5_fig01.png'
-plt.savefig(fname)
+    # Plot aesthetics
+    ax1.set_title(f'Gradient descent with {numIterations} iterations')
+    ax2.set_title(f'Zoomed-in view of gradient descent')
+    fig1.suptitle(f'{regType} Regression')
+
+    '''#################### Test ##########################'''
+
+    if regType == 'ols':
+        trueCost = costFunction(X_train_scaled, y_train, beta)
+        ax1.plot([trueCost] * numIterations, c='k', alpha=0.5)
+        ax2.plot([trueCost] * numIterationsShort, c='k', alpha=0.5)
+    elif regType == 'logistic':
+        betaHat = betaHistory[-1,:]
+        z = sigmoid(X_train, betaHat)
+        yhat = np.round( z, decimals = 0)
+
+        report = classification_report(y_train, yhat)
+        print(report)
+
+        fpr, tpr, _ = roc_curve(y_train, z)
+        roc_auc = auc(fpr, tpr)
+
+        fig2, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,10))
+        ax.plot(fpr, tpr, label=f'ROC curve (area = {np.round(roc_auc,4)})', color='orange', lw=4)
+        plt.plot([0, 1], [0, 1], color='navy', lw=4, linestyle='--')
+        plt.xlim([-0.005, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('ROC Curve')
+        plt.legend(loc="lower right")
+        fig2.suptitle(f'{regType} Regression')
+
+# Save images
+for fig in [fig1, fig2]:
+    fname = f'{workDir}/hw2_5_fig{fig.number}_{regType}.png'
+    plt.savefig(fname)
+
 plt.show()
