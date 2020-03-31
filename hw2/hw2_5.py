@@ -231,8 +231,8 @@ for regType in regressionTypes:
         fig2.suptitle(f'{regType} Regression')
 
 # Save images
-for fig in [fig1, fig2]:
-    fname = f'{workDir}/hw2_5_fig{fig.number}_{regType}.png'
+for fignum in plt.get_fignums():
+    fname = f'{workDir}/hw2_5_fig{fignum}_{regType}.png'
     plt.savefig(fname)
 
 plt.show()
