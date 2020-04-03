@@ -129,6 +129,7 @@ def batchLogisticGradientDescent(X, y, alpha, numIterations, betaHat):
 ########################################################################'''
 
 plt.close('all')
+figd = {}
 
 regressionTypes = ['ols', 'logistic']
 for regType in regressionTypes:
@@ -176,6 +177,7 @@ for regType in regressionTypes:
     numIterationsShort = 10
 
     fig1, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,10))
+    figd[fig1.number] = {'regType' : regType, 'fig' : fig1}
     ax1 = ax.ravel()[0]
     ax2 = ax.ravel()[1]
     for i in range(0,N):
@@ -220,6 +222,8 @@ for regType in regressionTypes:
         roc_auc = auc(fpr, tpr)
 
         fig2, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,10))
+        figd[fig2.number] = {'regType' : regType, 'fig' : fig2}
+
         ax.plot(fpr, tpr, label=f'ROC curve (area = {np.round(roc_auc,4)})', color='orange', lw=4)
         plt.plot([0, 1], [0, 1], color='navy', lw=4, linestyle='--')
         plt.xlim([-0.005, 1.0])
@@ -232,7 +236,9 @@ for regType in regressionTypes:
 
 # Save images
 for fignum in plt.get_fignums():
+    regType = figd[fignum]['regType']
+    fig = figd[fignum]['fig']
     fname = f'{workDir}/hw2_5_fig{fignum}_{regType}.png'
-    plt.savefig(fname)
+    fig.savefig(fname)
 
 plt.show()
